@@ -1,0 +1,13 @@
+rtca_now.h
+sc.txt
+sc.elf
+sc.dep
+sc.cflags
+*.[oa]
+*.pyc
+*.*~
+*.s
+*.swp
+config.pyc
+output.map
+tags
