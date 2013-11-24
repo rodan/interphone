@@ -7,7 +7,7 @@
 //#define CONFIG_RTC_DST_ZONE 4
 
 //#define CALIBRATION
-//#define RADIO
+//#define CONFIG_RADIO
 
 
 #endif

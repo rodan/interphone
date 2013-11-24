@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "ip.h"
+#include "proj.h"
 #include "calib.h"
 #include "drivers/sys_messagebus.h"
 #include "drivers/pmm.h"
 #include "drivers/rtc.h"
 #include "drivers/timer_a0.h"
-#include "drivers/uart.h"
+#include "drivers/uart1.h"
 #include "drivers/adc.h"
 
 volatile uint8_t trigger1;
@@ -26,7 +26,7 @@ volatile uint8_t trigger1;
 // tied to P1.1
 #define TRIG1 BIT1
 
-#ifdef RADIO
+#ifdef CONFIG_RADIO
 // TRIG2 is the radio control trigger. active low.
 // tied to P1.2
 #define TRIG2 BIT2
@@ -103,7 +103,7 @@ void main_init(void)
     // Enable button interrupts
     P1IE |= TRIG1;
 
-#ifdef RADIO
+#ifdef CONFIG_RADIO
     P1REN |= TRIG2;  // enable internal resistance
     P1OUT |= TRIG2;  // set as pull-up resistance
     P1IES |= TRIG2;  // Hi/Lo edge
@@ -173,7 +173,7 @@ void sleep(void)
 void wake_up(void)
 {
 
-#ifdef RADIO
+#ifdef CONFIG_RADIO
     uint8_t tries = 0;
     uint16_t q_bat = 0;
     float v_bat;
@@ -183,7 +183,7 @@ void wake_up(void)
 
     if (trigger1 && (v_bat > 1200)) {
         snprintf(str_temp, 13, "trig1 high\r\n");
-        uart_tx_str(str_temp, strlen(str_temp));
+        uart1_tx_str(str_temp, strlen(str_temp));
         r_enable;
         timer_a0_delay(100000);
         P1IFG &= ~TRIG1;
@@ -198,7 +198,7 @@ void wake_up(void)
                 timer_a0_delay_noblk(1000000);
                 tries++;
                 snprintf(str_temp, 7, "t %2d\r\n",tries);
-                uart_tx_str(str_temp, strlen(str_temp));
+                uart1_tx_str(str_temp, strlen(str_temp));
             }
             if (trigger2) {
                 // debounce
@@ -208,7 +208,7 @@ void wake_up(void)
                 }
                 P1IE &= ~TRIG2;
                 snprintf(str_temp, 7, "open\r\n");
-                uart_tx_str(str_temp, strlen(str_temp));
+                uart1_tx_str(str_temp, strlen(str_temp));
                 r_disable;
                 open_door();
                 break;
@@ -229,11 +229,11 @@ void wake_up(void)
             return;
         } else {
             //sprintf(str_temp, "trig1 %ld\r\n", rtca_time.sys);
-            //uart_tx_str(str_temp, strlen(str_temp));
+            //uart1_tx_str(str_temp, strlen(str_temp));
             if (rtca_time.sys - last_trigger < 5) {
                 P1IE &= ~TRIG1;
                 //snprintf(str_temp, 7, "open\r\n");
-                //uart_tx_str(str_temp, strlen(str_temp));
+                //uart1_tx_str(str_temp, strlen(str_temp));
                 open_door();
                 P1IE |= TRIG1;
             }
@@ -288,7 +288,7 @@ __interrupt void Port_1(void)
         _BIC_SR_IRQ(LPM3_bits);
     }
 
-#ifdef RADIO
+#ifdef CONFIG_RADIO
     else if (P1IFG & TRIG2) {
         trigger2 = true;
         P1IFG &= ~TRIG2;
