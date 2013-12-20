@@ -16,11 +16,11 @@ if config.h RADIO option is defined then the door opening is triggered by the fo
  the second scenario only needs one 3v 2032 Li cell. current consumption is about 4.5uA@3V. the pcb for this one is to be found in hardware/ip_simple.brd
 
 Pinout:
- - P1.1 - interphone cable PX
  - P1.2 - (optional) radio trigger
  - P1.4 - OPEN
  - P1.5 - TALK
  - P1.6 - (optional) power enable for radio rx system
+ - P6.2 - 'ring' detector from interphone 'PX' contact
 
  homepage:        https://github.com/rodan/interphone
  author:          Petre Rodan <petre.rodan@simplex.ro>
