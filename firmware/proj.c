@@ -65,7 +65,8 @@ int main(void)
     sys_messagebus_register(&timer_a0_irq, SYS_MSG_TIMER0_IFG);
 
     while (1) {
-        sleep(LPM3_bits);
+        // sleep
+        _BIS_SR(LPM3_bits + GIE);
         __no_operation();
         wake_up();
 #ifdef USE_WATCHDOG
@@ -126,14 +127,6 @@ void main_init(void)
     timer_a0_init();
     trigger1 = false;
     last_trigger = 0;
-}
-
-void sleep(uint16_t lpm)
-{
-    // disable TA0
-    //TA0CTL = 0;
-    _BIS_SR(lpm + GIE);
-    __no_operation();
 }
 
 void wake_up(void)
