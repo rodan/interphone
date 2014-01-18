@@ -2,7 +2,7 @@
 MSP430F5510 based project that ties into the appartment interphone system. in this case it's an Electra IA01.
 it allows the owner outside the building to open the door by following a pre-determined list of actions.
 
-if config.h RADIO option is defined then the door opening is triggered by the following actions:
+if config.h RADIO option (*) is defined then the door opening is triggered by the following actions:
  - call interphone number
  - wait 2s
  - send a radio signal to a receiver that is tied into the project. the receiver should pull P1.2 low on activation.
@@ -21,6 +21,8 @@ Pinout:
  - P1.4 - OPEN
  - P1.5 - TALK
  - P1.6 - (optional) power enable for radio rx system
+
+(*) radio-related code removed
 
  homepage:        https://github.com/rodan/interphone
  author:          Petre Rodan <petre.rodan@simplex.ro>
