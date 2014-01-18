@@ -13,7 +13,7 @@ if config.h RADIO option (*) is defined then the door opening is triggered by th
  - door opens
 
  the first scenario needs one 12v battery, a 12V one channel RC receiver and transmitter. a chronos watch could be used as the RC remote if the topology permits, see [1], [2]. current consumption is about 110uA@12V.
- the second scenario only needs one 3v 2032 Li cell. current consumption is about 4.5uA@3V. the pcb for this one is to be found in hardware/ip_simple.brd
+ the second scenario only needs one 3v 2032 Li cell. current consumption is about 1.4uA@3V. the pcb for this one is to be found in hardware/ip_simple.brd
 
 Pinout:
  - P1.1 - 'ring' detector from interphone 'PX'
