@@ -14,10 +14,6 @@
 #include "drivers/sys_messagebus.h"
 #include "drivers/timer_a0.h"
 
-#ifdef CONFIG_DEBUG
-#include "drivers/uart1.h"
-#endif
-
 // the period in which a second trigger is expected, in timer A0 ticks.
 // ticks = time(sec) * 32768
 #define period_min 120000
@@ -34,7 +30,11 @@
 
 volatile uint8_t trigger1;
 uint32_t last_trigger;
+
+#ifdef CONFIG_DEBUG
+#include "drivers/uart1.h"
 char str_temp[64];
+#endif
 
 static void timer_a0_irq(enum sys_message msg)
 {
