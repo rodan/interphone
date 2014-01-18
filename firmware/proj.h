@@ -18,7 +18,7 @@
 #define false               0
 
 void main_init(void);
-void sleep(void);
+void sleep(uint16_t lpm);
 void wake_up(void);
 void check_events(void);
 void open_door(void);

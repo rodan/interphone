@@ -12,63 +12,60 @@
 #include <string.h>
 
 #include "proj.h"
-#include "calib.h"
 #include "drivers/sys_messagebus.h"
-#include "drivers/pmm.h"
-#include "drivers/rtc.h"
 #include "drivers/timer_a0.h"
 #include "drivers/uart1.h"
-#include "drivers/adc.h"
 
 volatile uint8_t trigger1;
+
+// the period in which a second trigger is expected, in timer A0 ticks.
+// ticks = time(sec) * 32768
+#define period_min 130000
+#define period_max 140000
+
+// an integer representing the time after which the uC will go into LPM4 standby
+// standby_time(sec) = standby_time(int) * 2sec
+// (2sec is the overflow time of TA0R)
+#define standby_time 10
 
 // TRIG1 is the 9V input trigger (interphone cable 'PX')
 // tied to P1.1
 #define TRIG1 BIT1
 
-#ifdef CONFIG_RADIO
-// TRIG2 is the radio control trigger. active low.
-// tied to P1.2
-#define TRIG2 BIT2
-volatile uint8_t trigger2;
-#endif
-
 uint32_t last_trigger;
 
 char str_temp[64];
 
-#ifdef CALIBRATION
-static void do_calib(enum sys_message msg)
+static void timer_a0_irq(enum sys_message msg)
 {
-    uint16_t q_bat = 0;
-    float v_bat;
+    if (timer_a0_ovf >= standby_time) {
+        // disable TA0
+        TA0CTL = 0;
+#ifdef USE_WATCHDOG
+        WDTCTL = WDTPW + WDTHOLD;
+#endif
+        _BIS_SR(LPM4_bits + GIE);
+        __no_operation();
 
-    adc10_read(0, &q_bat, REFVSEL_2);
-    v_bat = q_bat * VREF_2_5 * DIV_BAT;
-    adc10_halt();
-
-    //1023 22.22DA0
-    snprintf(str_temp, 13, "%4d %02d.%02d\r\n",
-             q_bat, (uint16_t) v_bat / 100, (uint16_t) v_bat % 100);
-    uart_tx_str(str_temp, strlen(str_temp));
-
+        // an irq just came in
+        timer_a0_init();
+#ifdef USE_WATCHDOG
+    WDTCTL = WDTPW + WDTIS__512K + WDTSSEL__ACLK + WDTCNTCL;
+#endif
+        trigger1 = false;
+        last_trigger = 0;
+    }
 }
-#endif                          // CALIBRATION
 
 int main(void)
 {
     main_init();
-    //uart_init();
+    //uart1_init();
 
-#ifdef CALIBRATION
-    sys_messagebus_register(&do_calib, SYS_MSG_RTC_SECOND);
-#endif
-
-    //snprintf(str_temp, 4, "?\r\n");
-    //uart_tx_str(str_temp, strlen(str_temp));
+    sys_messagebus_register(&timer_a0_irq, SYS_MSG_TIMER0_IFG);
 
     while (1) {
-        sleep();
+        sleep(LPM3_bits);
         __no_operation();
         wake_up();
 #ifdef USE_WATCHDOG
@@ -80,21 +77,17 @@ int main(void)
 
 void main_init(void)
 {
-    //uint16_t timeout = 5000;
-
-    // watchdog triggers after 4 minutes when not cleared
+    // watchdog triggers after 25sec when not cleared
 #ifdef USE_WATCHDOG
-    WDTCTL = WDTPW + WDTIS__8192K + WDTSSEL__ACLK + WDTCNTCL;
+    WDTCTL = WDTPW + WDTIS__512K + WDTSSEL__ACLK + WDTCNTCL;
 #else
     WDTCTL = WDTPW + WDTHOLD;
 #endif
-    SetVCore(3);
-
     P5SEL |= BIT5 + BIT4;
 
-    P1SEL = 0x0;
-    P1DIR = 0xf9;
-    P1OUT = 0x00;
+    P1SEL = 0;
+    P1DIR = 0xfd;
+    P1OUT = 0;
 
     // IRQ triggers on rising edge
     P1IES &= ~TRIG1;
@@ -103,141 +96,67 @@ void main_init(void)
     // Enable button interrupts
     P1IE |= TRIG1;
 
-#ifdef CONFIG_RADIO
-    P1REN |= TRIG2;  // enable internal resistance
-    P1OUT |= TRIG2;  // set as pull-up resistance
-    P1IES |= TRIG2;  // Hi/Lo edge
-    P1IFG &= ~TRIG2; // IFG cleared
-    trigger2 = false;
-#endif
-
-    P2SEL = 0x0;
+    P2SEL = 0;
     P2DIR = 0x1;
-    P2OUT = 0x0;
+    P2OUT = 0;
 
-    P3SEL = 0x0;
+    P3SEL = 0;
     P3DIR = 0x1f;
-    P3OUT = 0x0;
+    P3OUT = 0;
 
-    P4SEL = 0x00;
-    P4DIR = 0xb9;
-    P4OUT = 0x0;
+    P4SEL = 0;
+    P4DIR = 0xff;
+    P4OUT = 0;
 
     //P5SEL is set above
-    P5DIR = 0x0;
-    P5OUT = 0x0;
+    P5DIR = 0xff;
+    P5OUT = 0;
 
-    P6SEL = 0x1;
-    P6DIR = 0x00;
-    P6REN = 0x0a;
+    P6DIR = 0xff;
+    P6OUT = 0;
 
-    PJOUT = 0x00;
-    PJDIR = 0xFF;
+    PJDIR = 0xff;
+    PJOUT = 0;
 
-#ifdef CALIBRATION
-    // send MCLK to P4.0
-    __disable_interrupt();
-    // get write-access to port mapping registers
-    //PMAPPWD = 0x02D52;
-    PMAPPWD = PMAPKEY;
-    PMAPCTL = PMAPRECFG;
-    // MCLK set out to 4.0
-    P4MAP0 = PM_MCLK;
-    //P4MAP0 = PM_RTCCLK;
-    PMAPPWD = 0;
-    __enable_interrupt();
-    P4DIR |= BIT0;
-    P4SEL |= BIT0;
-
-    // send ACLK to P1.0
-    P1DIR |= BIT0;
-    P1SEL |= BIT0;
-#endif
-
-    rtca_init();
-    timer_a0_init();
-    trigger1 = false;
-    last_trigger = -1L;
-}
-
-void sleep(void)
-{
     // disable VUSB LDO and SLDO
     USBKEYPID = 0x9628;
     USBPWRCTL &= ~(SLDOEN + VUSBEN);
     USBKEYPID = 0x9600;
-    _BIS_SR(LPM3_bits + GIE);
+
+    timer_a0_init();
+    trigger1 = false;
+    last_trigger = 0;
+}
+
+void sleep(uint16_t lpm)
+{
+    // disable TA0
+    //TA0CTL = 0;
+    _BIS_SR(lpm + GIE);
     __no_operation();
 }
 
 void wake_up(void)
 {
-
-#ifdef CONFIG_RADIO
-    uint8_t tries = 0;
-    uint16_t q_bat = 0;
-    float v_bat;
-    adc10_read(0, &q_bat, REFVSEL_2);
-    v_bat = q_bat * VREF_2_5 * DIV_BAT;
-    adc10_halt();
-
-    if (trigger1 && (v_bat > 1200)) {
-        snprintf(str_temp, 13, "trig1 high\r\n");
-        uart1_tx_str(str_temp, strlen(str_temp));
-        r_enable;
-        timer_a0_delay(100000);
-        P1IFG &= ~TRIG1;
-        P1IE &= ~TRIG1;
-        //trigger2 = false;
-        P1IFG &= ~TRIG2;
-        P1IE |= TRIG2;
-        timer_a0_delay_noblk(1000000);
-        while (tries < 10) {
-            if (timer_a0_last_event & TIMER_A0_EVENT_CCR2) {
-                timer_a0_last_event &= ~TIMER_A0_EVENT_CCR2;
-                timer_a0_delay_noblk(1000000);
-                tries++;
-                snprintf(str_temp, 7, "t %2d\r\n",tries);
-                uart1_tx_str(str_temp, strlen(str_temp));
-            }
-            if (trigger2) {
-                // debounce
-                timer_a0_delay(50000);
-                if (P1IN & TRIG2) {
-                    continue;
-                }
-                P1IE &= ~TRIG2;
-                snprintf(str_temp, 7, "open\r\n");
-                uart1_tx_str(str_temp, strlen(str_temp));
-                r_disable;
-                open_door();
-                break;
-            }
-        }
-        r_disable;
-        P1IFG &= ~TRIG2;
-        P1IE &= ~TRIG2;
-        trigger1 = false;
-        trigger2 = false;
-        P1IE |= TRIG1;
-    } else
-#endif
+    uint32_t trig_time, trig_diff;
     if (trigger1) {
         // debounce
         timer_a0_delay(50000);
         if ((P1IN & TRIG1) == 0) {
             return;
         } else {
-            //sprintf(str_temp, "trig1 %ld\r\n", rtca_time.sys);
+            trig_time = ((uint32_t) timer_a0_ovf << 16) + (uint16_t) TA0R;
+            trig_diff = trig_time - last_trigger;
+            //sprintf(str_temp, "trig1 %ld %ld\r\n", trig_time, trig_diff);
             //uart1_tx_str(str_temp, strlen(str_temp));
-            if (rtca_time.sys - last_trigger < 5) {
+            if ((trig_diff > period_min) && (trig_diff < period_max)) {
                 P1IE &= ~TRIG1;
                 //snprintf(str_temp, 7, "open\r\n");
                 //uart1_tx_str(str_temp, strlen(str_temp));
                 open_door();
                 P1IE |= TRIG1;
             }
-            last_trigger = rtca_time.sys;
+            last_trigger = trig_time;
         }
         trigger1 = false;
     }
@@ -248,11 +167,12 @@ void check_events(void)
     struct sys_messagebus *p = messagebus;
     enum sys_message msg = 0;
 
-    // drivers/rtca
-    if (rtca_last_event) {
-        msg |= rtca_last_event;
-        rtca_last_event = 0;
+    // drivers/timer_a0
+    if (timer_a0_last_event) {
+        msg |= timer_a0_last_event << 7;
+        timer_a0_last_event = 0;
     }
+
     while (p) {
         // notify listener if he registered for any of these messages
         if (msg & p->listens) {
@@ -264,18 +184,13 @@ void check_events(void)
 
 void open_door(void)
 {
-    // 0.2 0.1 0.1 0.1 is working
-    //P4OUT |= BIT3; // orange led on
     timer_a0_delay(100000);
     talk_enable;
     timer_a0_delay(100000);
-    //P4OUT &= ~BIT3; // orange led off
     talk_disable;
     timer_a0_delay(100000);
-    //P4OUT |= BIT7; // green led on
     open_enable;
     timer_a0_delay(100000);
-    //P4OUT &= ~(BIT3 + BIT7); // leds off
     open_disable;
 }
 
@@ -285,14 +200,7 @@ __interrupt void Port_1(void)
     if (P1IFG & TRIG1) {
         trigger1 = true;
         P1IFG &= ~TRIG1;
-        _BIC_SR_IRQ(LPM3_bits);
+        LPM4_EXIT;
     }
-
-#ifdef CONFIG_RADIO
-    else if (P1IFG & TRIG2) {
-        trigger2 = true;
-        P1IFG &= ~TRIG2;
-        _BIC_SR_IRQ(LPM3_bits);
-    }
-#endif
 }
+

@@ -1,6 +1,6 @@
 
 SUBDIRS = drivers
-PROJ = ip
+PROJ = proj
 
 ### Machine flags
 #
