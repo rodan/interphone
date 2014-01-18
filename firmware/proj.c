@@ -10,18 +10,18 @@
 
 #include <stdio.h>
 #include <string.h>
-
 #include "proj.h"
 #include "drivers/sys_messagebus.h"
 #include "drivers/timer_a0.h"
-#include "drivers/uart1.h"
 
-volatile uint8_t trigger1;
+#ifdef CONFIG_DEBUG
+#include "drivers/uart1.h"
+#endif
 
 // the period in which a second trigger is expected, in timer A0 ticks.
 // ticks = time(sec) * 32768
-#define period_min 130000
-#define period_max 140000
+#define period_min 120000
+#define period_max 150000
 
 // an integer representing the time after which the uC will go into LPM4 standby
 // standby_time(sec) = standby_time(int) * 2sec
@@ -32,14 +32,14 @@ volatile uint8_t trigger1;
 // tied to P1.1
 #define TRIG1 BIT1
 
+volatile uint8_t trigger1;
 uint32_t last_trigger;
-
 char str_temp[64];
 
 static void timer_a0_irq(enum sys_message msg)
 {
     if (timer_a0_ovf >= standby_time) {
-        // disable TA0
+        // disable TA0 so that LPM4 can have maximum effectiveness
         TA0CTL = 0;
 #ifdef USE_WATCHDOG
         WDTCTL = WDTPW + WDTHOLD;
@@ -47,7 +47,7 @@ static void timer_a0_irq(enum sys_message msg)
         _BIS_SR(LPM4_bits + GIE);
         __no_operation();
 
-        // an irq just came in
+        // a PORT1 irq just came in, so we wake up
         timer_a0_init();
 #ifdef USE_WATCHDOG
     WDTCTL = WDTPW + WDTIS__512K + WDTSSEL__ACLK + WDTCNTCL;
@@ -60,7 +60,9 @@ static void timer_a0_irq(enum sys_message msg)
 int main(void)
 {
     main_init();
-    //uart1_init();
+#ifdef CONFIG_DEBUG
+    uart1_init();
+#endif
 
     sys_messagebus_register(&timer_a0_irq, SYS_MSG_TIMER0_IFG);
 
@@ -140,12 +142,16 @@ void wake_up(void)
         } else {
             trig_time = ((uint32_t) timer_a0_ovf << 16) + (uint16_t) TA0R;
             trig_diff = trig_time - last_trigger;
-            //sprintf(str_temp, "trig1 %ld %ld\r\n", trig_time, trig_diff);
-            //uart1_tx_str(str_temp, strlen(str_temp));
+#ifdef CONFIG_DEBUG
+            sprintf(str_temp, "trig1 %ld %ld\r\n", trig_time, trig_diff);
+            uart1_tx_str(str_temp, strlen(str_temp));
+#endif
             if ((trig_diff > period_min) && (trig_diff < period_max)) {
                 P1IE &= ~TRIG1;
-                //snprintf(str_temp, 7, "open\r\n");
-                //uart1_tx_str(str_temp, strlen(str_temp));
+#ifdef CONFIG_DEBUG
+                snprintf(str_temp, 7, "open\r\n");
+                uart1_tx_str(str_temp, strlen(str_temp));
+#endif
                 open_door();
                 P1IE |= TRIG1;
             }
