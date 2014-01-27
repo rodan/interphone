@@ -32,20 +32,18 @@ LD		= msp430-ld
 AS		= msp430-as
 AR		= msp430-ar
 
-PYTHON := $(shell which python2 || which python)
 BASH := $(shell which bash || which bash)
 
 .PHONY: all
 .PHONY: clean
 .PHONY: install
 .PHONY: config
-.PHONY: new_timestamps
 .PHONY: depend
 .PHONY: doc
 .PHONY: tags
 .PHONY: force
 
-all: new_timestamps depend config.h tags $(PROJ).txt
+all: depend config.h tags $(PROJ).elf
 
 #
 # Build list of sources and objects to build
@@ -89,10 +87,7 @@ $(OBJS): $(PROJ).cflags
 
 $(PROJ).elf: $(OBJS)
 	@echo -e "\n>> Building $@ as target $(TARGET)"
-	@$(CC) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ $+	
-
-$(PROJ).txt: $(PROJ).elf
-	$(PYTHON) tools/memory.py -i $< -o $@
+	@$(CC) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ $+ && size $@
 
 modinit.o: modinit.c
 	@echo "CC $<"
@@ -109,25 +104,18 @@ modinit.c:
 config.h:
 	@echo "Please do a 'make config' first!" && false
 
-new_timestamps:
-	@$(BASH) ./tools/update_rtca_now.sh
-
 tags: $(SRCS)
 	@echo "Generating tags .."
 	@exuberant-ctags -R
 
-config:
-	$(PYTHON) tools/config.py
-	$(PYTHON) tools/make_modinit.py
-
-install: $(PROJ).txt
+install: $(PROJ).elf
 	mspdebug olimex-iso-mk2 "prog $<"
 
 clean: $(SUBDIRS)
 	@for subdir in $(SUBDIRS); do \
 		echo "Cleaning $$subdir .."; rm -f $$subdir/*.o; \
 	done
-	@rm -f *.o $(PROJ).{elf,txt,cflags,dep} output.map
+	@rm -f *.o $(PROJ).{elf,cflags,dep} output.map
 
 doc:
 	rm -rf doc/*
