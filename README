@@ -2,7 +2,7 @@
 MSP430F5510 based project that ties into the appartment interphone system. in this case it's an Electra IA01.
 it allows the owner outside the building to open the door by following a pre-determined list of actions.
 
-if config.h RADIO option is defined then the door opening is triggered by the following actions:
+if config.h RADIO option (*) is defined then the door opening is triggered by the following actions:
  - call interphone number
  - wait 2s
  - send a radio signal to a receiver that is tied into the project. the receiver should pull P1.2 low on activation.
@@ -13,7 +13,7 @@ if config.h RADIO option is defined then the door opening is triggered by the fo
  - door opens
 
  the first scenario needs one 12v battery, a 12V one channel RC receiver and transmitter. a chronos watch could be used as the RC remote if the topology permits, see [1], [2]. current consumption is about 110uA@12V.
- the second scenario only needs one 3v 2032 Li cell. current consumption is about 4.5uA@3V. the pcb for this one is to be found in hardware/ip_simple.brd
+ the second scenario only needs one 3v 2032 Li cell. current consumption is about 1.4uA@3V. the pcb for this one is to be found in hardware/ip_simple.brd
 
 Pinout:
  - P1.1 - 'ring' detector from interphone 'PX'
@@ -21,6 +21,8 @@ Pinout:
  - P1.4 - OPEN
  - P1.5 - TALK
  - P1.6 - (optional) power enable for radio rx system
+
+(*) radio-related code removed
 
  homepage:        https://github.com/rodan/interphone
  author:          Petre Rodan <petre.rodan@simplex.ro>
