@@ -4,7 +4,7 @@
 //  it allows the owner outside the building to open the door by following a 
 //  pre-determined list of actions.
 //
-//  author:          Petre Rodan <petre.rodan@simplex.ro>
+//  author:          Petre Rodan <2b4eda@subdimension.ro>
 //  available from:  https://github.com/rodan/
 //  license:         GNU GPLv3
 
