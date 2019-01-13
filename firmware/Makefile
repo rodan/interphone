@@ -27,10 +27,10 @@ LDFLAGS_DBG	+= -Wl,--gc-sections
 INCLUDES	+= -I./ -Igcc/ -Idrivers/
 ### Build tools
 # 
-CC		= msp430-gcc
-LD		= msp430-ld
-AS		= msp430-as
-AR		= msp430-ar
+CC              = msp430-elf-gcc
+LD              = msp430-elf-ld
+AS              = msp430-elf-as
+AR              = msp430-elf-ar
 
 BASH := $(shell which bash || which bash)
 
@@ -109,7 +109,8 @@ tags: $(SRCS)
 	@exuberant-ctags -R
 
 install: $(PROJ).elf
-	mspdebug olimex-iso-mk2 "prog $<"
+	@bash ~/bin/burn.sh
+	#@mspdebug olimex-iso-mk2 "prog $<"
 
 clean: $(SUBDIRS)
 	@for subdir in $(SUBDIRS); do \
